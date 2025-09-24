@@ -130,18 +130,9 @@
       const resetBtn = document.getElementById('resetBtn');
       const exportBtn = document.getElementById('exportBtn');
 
-      // Generate a random id for the SSN input every page load to avoid a fixed id.
-      // Keep a global reference in window.SSN_INPUT_ID and use getSsnInput() to retrieve it.
-      (function setRandomSsnId() {
-        const orig = document.getElementById('qSsn');
-        if (!orig) return;
-        const newId = 'qssn-' + Math.random().toString(36).slice(2, 10);
-        orig.id = newId;
-        window.SSN_INPUT_ID = newId;
-      })();
-
+      // SSN input uses a static id 'qSsn'. Helper returns that element.
       function getSsnInput() {
-        return document.getElementById(window.SSN_INPUT_ID || 'qSsn');
+        return document.getElementById('qSsn');
       }
 
       function renderTable() {
