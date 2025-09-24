@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Government Background Search — Mock</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      body { background:#f4f6f8; }
+      .gov-header { background: linear-gradient(90deg,#0b5ed7,#0d6efd); color: #fff; }
+      .badge-clear { background:#198754; }
+      .badge-flagged { background:#dc3545; }
+      .badge-pending { background:#ffc107; color:#212529; }
+      .table-fixed thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+      .masked { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; letter-spacing: 0.08em; }
+      .small-muted { font-size: .85rem; color: #6c757d; }
+    </style>
+  </head>
+  <body>
+    <header class="gov-header py-3">
+      <div class="container d-flex align-items-center">
+        <div class="me-3">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+            <rect width="24" height="24" rx="4" fill="#fff"/>
+            <path d="M6 9h12M6 13h12M6 17h8" stroke="#0d6efd" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <h4 class="mb-0">State Background Search Portal — Mock</h4>
+          <div class="small">Agency: Department of Public Safety • Environment: Demo</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container my-4">
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <form id="searchForm" class="row g-2 align-items-end">
+            <div class="col-md-6">
+              <label class="form-label small-muted">SSN
+                <div class="input-group mt-1">
+                  <input id="qSsn" type="text" inputmode="numeric" pattern="\d{3}-?\d{2}-?\d{4}|\d{9}" class="form-control" placeholder="123-45-6789 or 123456789" aria-describedby="ssnHelp">
+                  <button class="btn btn-primary" type="button" id="searchBtn">Search</button>
+                </div>
+              </label>
+              <div id="ssnHelp" class="form-text small-muted">Enter a SSN to search (demo only, no real PII used).</div>
+            </div>
+          </form>
+
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            <div class="small-muted">Showing <span id="resultCount">0</span> results</div>
+            <div>
+              <button id="resetBtn" class="btn btn-sm btn-outline-secondary">Reset</button>
+              <button id="exportBtn" class="btn btn-sm btn-outline-success">Export CSV</button>
+            </div>
+          </div>
+
+          <div class="table-responsive mt-2">
+            <table class="table table-hover table-fixed align-middle" id="resultsTable">
+              <thead class="table-light">
+                <tr>
+                  <th scope="col" data-key="id">ID</th>
+                  <th scope="col" data-key="name">Name</th>
+                  <th scope="col" data-key="dob">DOB</th>
+                  <th scope="col" data-key="ssn">SSN</th>
+                  <th scope="col" data-key="status">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+
+          <nav aria-label="Results pagination">
+            <ul class="pagination justify-content-center" id="pagination"></ul>
+          </nav>
+        </div>
+      </section>
+    </main>
+
+    <!-- Details modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Record Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <dl class="row">
+              <dt class="col-sm-3">ID</dt><dd id="dId" class="col-sm-9"></dd>
+              <dt class="col-sm-3">Name</dt><dd id="dName" class="col-sm-9"></dd>
+              <dt class="col-sm-3">DOB</dt><dd id="dDob" class="col-sm-9"></dd>
+              <dt class="col-sm-3">SSN (masked)</dt><dd id="dSsn" class="col-sm-9 masked"></dd>
+              <dt class="col-sm-3">Status</dt><dd id="dStatus" class="col-sm-9"></dd>
+              <dt class="col-sm-3">Notes</dt><dd id="dNotes" class="col-sm-9 small-muted"></dd>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      // Mock dataset (all PII masked or synthetic)
+      const DATA = [
+        { id: 'A-1001', name: 'Smith, John', dob: '1979-04-22', ssn: '***-**-6789', status: 'clear', notes: 'No derogatory records.' },
+        { id: 'A-1002', name: 'Lopez, Maria', dob: '1990-11-12', ssn: '***-**-1234', status: 'pending', notes: 'Fingerprint check in progress.' },
+        { id: 'A-1003', name: 'Chen, Li', dob: '1985-06-03', ssn: '***-**-4321', status: 'flagged', notes: 'Alias found; further review needed.' },
+        { id: 'A-1004', name: 'O\'Connor, Shaun', dob: '1972-09-30', ssn: '***-**-9876', status: 'clear', notes: 'Cleared after identity verification.' },
+        { id: 'A-1005', name: 'Khan, Aisha', dob: '2001-02-14', ssn: '***-**-5555', status: 'pending', notes: 'Court records matching in progress.' },
+        { id: 'A-1006', name: 'Nguyen, Anh', dob: '1995-05-20', ssn: '***-**-6666', status: 'clear', notes: 'No hits.' },
+        { id: 'A-1007', name: 'Garcia, Luis', dob: '1988-07-07', ssn: '***-**-7777', status: 'flagged', notes: 'Outstanding warrant match; sealed until confirmation.' },
+        { id: 'A-1008', name: 'Patel, Ravi', dob: '1976-01-09', ssn: '***-**-8888', status: 'clear', notes: 'Verified via multi-source cross-check.' },
+        { id: 'A-1009', name: 'Brown, Angela', dob: '1992-12-01', ssn: '***-**-9999', status: 'pending', notes: 'Waiting on interstate query.' },
+        { id: 'A-1010', name: 'Ivanov, Sergey', dob: '1980-03-18', ssn: '***-**-1111', status: 'flagged', notes: 'Multiple alias records found.' }
+      ];
+
+  // UI state
+  // Start with no results; search populates a generic demo set.
+  let filtered = [];
+      const PAGE_SIZE = 5;
+      let currentPage = 1;
+
+      // Elements
+      const resultsBody = document.getElementById('resultsBody');
+      const resultCount = document.getElementById('resultCount');
+      const pagination = document.getElementById('pagination');
+      const searchForm = document.getElementById('searchForm');
+      const resetBtn = document.getElementById('resetBtn');
+      const exportBtn = document.getElementById('exportBtn');
+
+      // Generate a random id for the SSN input every page load to avoid a fixed id.
+      // Keep a global reference in window.SSN_INPUT_ID and use getSsnInput() to retrieve it.
+      (function setRandomSsnId() {
+        const orig = document.getElementById('qSsn');
+        if (!orig) return;
+        const newId = 'qssn-' + Math.random().toString(36).slice(2, 10);
+        orig.id = newId;
+        window.SSN_INPUT_ID = newId;
+      })();
+
+      function getSsnInput() {
+        return document.getElementById(window.SSN_INPUT_ID || 'qSsn');
+      }
+
+      function renderTable() {
+        resultsBody.innerHTML = '';
+        const start = (currentPage -1) * PAGE_SIZE;
+        const pageItems = filtered.slice(start, start + PAGE_SIZE);
+        for (const r of pageItems) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="text-muted">${r.id}</td>
+            <td>${r.name}</td>
+            <td>${r.dob}</td>
+            <td class="masked">${r.ssn}</td>
+            <td>${statusBadge(r.status)}</td>
+            <td><button class="btn btn-sm btn-outline-primary details-btn" data-id="${r.id}">Details</button></td>
+          `;
+          resultsBody.appendChild(tr);
+        }
+        resultCount.textContent = filtered.length;
+        renderPagination();
+        attachDetailHandlers();
+      }
+
+      function statusBadge(s) {
+        if (s === 'clear') return `<span class="badge badge-clear">Clear</span>`;
+        if (s === 'pending') return `<span class="badge badge-pending">Pending</span>`;
+        if (s === 'flagged') return `<span class="badge badge-flagged">Flagged</span>`;
+        return `<span class="badge bg-secondary">Unknown</span>`;
+      }
+
+      function renderPagination() {
+        pagination.innerHTML = '';
+        const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+        function makeItem(i, label = null, active=false, disabled=false) {
+          const li = document.createElement('li');
+          li.className = 'page-item' + (active ? ' active' : '') + (disabled ? ' disabled' : '');
+          const a = document.createElement('a');
+          a.className = 'page-link';
+          a.href = '#';
+          a.dataset.page = i;
+          a.textContent = label ?? i;
+          li.appendChild(a);
+          return li;
+        }
+        // Prev
+        pagination.appendChild(makeItem(Math.max(1, currentPage-1), 'Prev', false, currentPage===1));
+        for (let i=1;i<=pageCount;i++) pagination.appendChild(makeItem(i, null, i===currentPage));
+        // Next
+        pagination.appendChild(makeItem(Math.min(pageCount, currentPage+1), 'Next', false, currentPage===pageCount));
+
+        // events
+        pagination.querySelectorAll('a.page-link').forEach(a => a.addEventListener('click', (e)=>{
+          e.preventDefault();
+          const p = Number(a.dataset.page);
+          if (!isNaN(p) && p !== currentPage) { currentPage = p; renderTable(); }
+        }));
+      }
+
+      function attachDetailHandlers() {
+        document.querySelectorAll('.details-btn').forEach(btn => {
+          btn.addEventListener('click', ()=>{
+            const id = btn.dataset.id;
+            // Prefer the currently displayed (filtered) dataset so generated results open correctly.
+            const rec = filtered.find(x => x.id === id) || DATA.find(x => x.id === id);
+            if (!rec) return;
+            document.getElementById('dId').textContent = rec.id;
+            document.getElementById('dName').textContent = rec.name;
+            document.getElementById('dDob').textContent = rec.dob;
+            document.getElementById('dSsn').textContent = rec.ssn;
+            document.getElementById('dStatus').innerHTML = statusBadge(rec.status);
+            document.getElementById('dNotes').textContent = rec.notes;
+            const modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+            modal.show();
+          });
+        });
+      }
+
+      // When the search button is pressed, return a generic set of results
+      // (this ignores the form inputs and always shows a consistent demo dataset)
+      function doSearch(e) {
+        if (e) e.preventDefault();
+  const raw = (getSsnInput() || {}).value || '';
+        const digits = raw.replace(/[^0-9]/g, '');
+        if (digits.length < 4) {
+          alert('Please enter at least the last 4 digits of an SSN for the demo search.');
+          return;
+        }
+        const last4 = digits.slice(-4);
+
+        // Create demo results that include the masked SSN with the provided last4
+        const GENERIC = Array.from({ length: 6 }, (_, i) => {
+          const n = i + 1;
+          return {
+            id: `G-${1000 + n}`,
+            name: `Doe, Demo${n}`,
+            dob: `19${80 + (n % 20)}-01-${String((n % 28) + 1).padStart(2,'0')}`,
+            ssn: `***-**-${last4}`,
+            status: ['clear','pending','flagged'][n % 3],
+            notes: 'Generic demo record generated by the SSN search.'
+          };
+        });
+
+        filtered = GENERIC;
+        currentPage = 1;
+        renderTable();
+      }
+
+  // Prevent the form from submitting (pressing Enter) so the page doesn't reload
+  if (searchForm) searchForm.addEventListener('submit', (ev) => ev.preventDefault());
+  // Wire the search button to always return the generic demo dataset
+  const searchBtn = document.getElementById('searchBtn');
+      if (searchBtn) searchBtn.addEventListener('click', doSearch);
+      resetBtn.addEventListener('click', ()=>{
+  // clear ssn input
+  const ssnInput = getSsnInput();
+  if (ssnInput) ssnInput.value = '';
+        // Clear results on reset
+        filtered = [];
+        currentPage = 1;
+        renderTable();
+      });
+
+      exportBtn.addEventListener('click', ()=>{
+        const rows = filtered.map(r => [r.id, r.name, r.dob, r.ssn, r.status, r.notes]);
+  const csv = ['ID,Name,DOB,SSN,Status,Notes', ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'background_search_export.csv'; a.click();
+        URL.revokeObjectURL(url);
+      });
+
+  // Initial state: explicitly clear UI so no results appear until Search is clicked.
+  try {
+    if (resultsBody) resultsBody.innerHTML = '';
+    if (pagination) pagination.innerHTML = '';
+    if (resultCount) resultCount.textContent = '0';
+  } catch (e) {
+    // noop
+  }
+    </script>
+  </body>
+</html>
